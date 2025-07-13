@@ -4,3 +4,5 @@ httpx>=0.26.0
 python-dotenv>=1.0.0
 uvicorn>=0.27.0  # For running the FastAPI application
 requests>=2.31.0  # For making HTTP requests
+notion-client>=2.2.1  # For Notion API integration
+openai>=1.3.0  # For OpenAI LLM integration
