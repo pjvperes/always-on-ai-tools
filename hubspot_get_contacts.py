@@ -2,6 +2,8 @@ import requests
 import os
 import sys
 import json
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 from dotenv import load_dotenv
 
 # Carregar variáveis do arquivo .env se existir
@@ -24,6 +26,14 @@ HEADERS = {
     'Content-Type': 'application/json',
     'Authorization': f'Bearer {HUBSPOT_API_KEY}'
 }
+
+# Inicializar FastAPI
+app = FastAPI(title="HubSpot Contacts API", version="1.0.0")
+
+# Modelo para os parâmetros da requisição
+class ContactsRequest(BaseModel):
+    context: str
+    prompt: str
 
 def get_contacts():
     """
@@ -57,15 +67,12 @@ def get_contacts():
                 else:
                     break
             elif response.status_code == 401:
-                print("❌ Erro de autenticação: Verifique se a HUBSPOT_API_KEY está correta")
-                return []
+                raise HTTPException(status_code=401, detail="Erro de autenticação: Verifique se a HUBSPOT_API_KEY está correta")
             else:
-                print(f"❌ Erro ao buscar contatos: {response.status_code} - {response.text}")
-                return []
+                raise HTTPException(status_code=500, detail=f"Erro ao buscar contatos: {response.status_code} - {response.text}")
                 
     except requests.exceptions.RequestException as e:
-        print(f"❌ Erro de conexão: {e}")
-        return []
+        raise HTTPException(status_code=500, detail=f"Erro de conexão: {e}")
     
     return all_contacts
 
@@ -102,11 +109,20 @@ def format_contacts_json(contacts):
         "contatos": formatted_contacts
     }
 
-def main():
+@app.post("/contacts")
+async def get_hubspot_contacts(request: ContactsRequest):
     """
-    Função principal
+    Rota para buscar contatos do HubSpot CRM
+    
+    Args:
+        request: Objeto com context e prompt (não utilizados por enquanto)
+    
+    Returns:
+        JSON com os dados dos contatos
     """
-    print("🔍 Buscando contatos no HubSpot CRM...")
+    # Por enquanto, os parâmetros context e prompt não são utilizados
+    # Eles serão implementados futuramente
+    
     contacts = get_contacts()
     
     if not contacts:
@@ -117,12 +133,8 @@ def main():
     else:
         result = format_contacts_json(contacts)
     
-    # Retornar resultado em JSON
-    json_output = json.dumps(result, indent=2, ensure_ascii=False)
-    print("\n📋 Dados dos contatos em JSON:")
-    print(json_output)
-    
     return result
 
 if __name__ == '__main__':
-    main() 
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000) 
