@@ -142,14 +142,14 @@ def call_llm(context: str, prompt: str, hubspot_data: List[Dict[str, Any]], noti
     
     # Prepare the system message with all data
     system_message = f"""
-    Você é um assistente inteligente que tem acesso aos seguintes dados:
+    Seja um especialista em Marketing e Produto que está em uma reunião estratégica e tem acesso aos seguintes dados:
     
     CONTEXTO: {context}
     
     DADOS DO HUBSPOT (Contatos):
     {hubspot_data}
     
-    DADOS DO PRODUTO (Página Notion):
+    DADOS DOS PRODUTO (Página Notion):
     {notion_text}
     
     Use essas informações para responder às solicitações do usuário de forma precisa e contextual.
