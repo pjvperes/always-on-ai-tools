@@ -109,6 +109,27 @@ class SessionManager:
             }
         })
         
+        # Data Verification Tool
+        schemas.append({
+            "type": "function",
+            "name": "verify_data_tool",
+            "description": "Verify and analyze sales data from HubSpot CRM using AI analysis",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "context": {
+                        "type": "string",
+                        "description": "Context for the data analysis (e.g., 'Sales data analysis', 'Revenue verification')"
+                    },
+                    "prompt": {
+                        "type": "string",
+                        "description": "Specific question or analysis request about the sales data"
+                    }
+                },
+                "required": ["context", "prompt"]
+            }
+        })
+        
         return schemas
     
     def _handle_tool_call(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
@@ -124,6 +145,8 @@ class SessionManager:
                 return self._call_get_market_fit_analysis(arguments)
             elif tool_name == "get_marketing_strategy":
                 return self._call_get_marketing_strategy(arguments)
+            elif tool_name == "verify_data_tool":
+                return self._call_verify_data_tool(arguments)
             else:
                 return {"error": f"Unknown tool: {tool_name}"}
                 
@@ -171,6 +194,15 @@ class SessionManager:
         parameters = arguments.get("parameters", {})
         
         return self._run_async_tool(get_marketing_strategy, parameters)
+    
+    def _call_verify_data_tool(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Call the data verification tool"""
+        from realtime.tools import verify_data_tool
+        
+        context = arguments.get("context", "General data verification")
+        prompt = arguments.get("prompt", "Analyze the sales data")
+        
+        return self._run_async_tool(verify_data_tool, context, prompt)
     
     def _run_async_tool(self, tool_func, *args) -> Dict[str, Any]:
         """Run an async tool function"""

@@ -186,3 +186,75 @@ async def get_marketing_strategy(parameters: dict = None) -> dict:
         "Develop marketing strategy", 
         {"analysis_type": "strategy", "context": "Estratégia de marketing e vendas"}
     ) 
+
+async def verify_data_tool(context: str, prompt: str) -> dict:
+    """
+    Verify and analyze sales data from HubSpot CRM
+    
+    Args:
+        context: Context for the data analysis
+        prompt: Specific question or analysis request
+    
+    Returns:
+        Dict with tool execution result
+    """
+    import httpx
+    import os
+    from dotenv import load_dotenv
+    
+    load_dotenv()
+    
+    try:
+        # Check if required API keys are configured
+        hubspot_api_key = os.getenv("HUBSPOT_API_KEY")
+        openai_api_key = os.getenv("OPENAI_API_KEY")
+        api_base_url = os.getenv("VERIFY_DATA_API_URL", "http://localhost:8000")
+        
+        if not hubspot_api_key or not openai_api_key:
+            return {
+                "success": False,
+                "error": "API keys not configured. Please set HUBSPOT_API_KEY and OPENAI_API_KEY in .env file"
+            }
+        
+        # Call the verify_data API
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            payload = {
+                "context": context,
+                "prompt": prompt
+            }
+            
+            response = await client.post(
+                f"{api_base_url}/verify-data",
+                json=payload
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                if data.get("error"):
+                    return {
+                        "success": False,
+                        "error": data["error"]
+                    }
+                
+                return {
+                    "success": True,
+                    "result": data.get("response", "Data verification completed"),
+                    "details": "Analysis completed using HubSpot CRM data"
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": f"API returned status {response.status_code}: {response.text}"
+                }
+            
+    except httpx.TimeoutException:
+        return {
+            "success": False,
+            "error": "Request timed out. Please try again."
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Tool execution failed: {str(e)}"
+        } 
