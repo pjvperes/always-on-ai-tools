@@ -10,7 +10,7 @@
 
 ### 📊 `/verify-data` - Verificação de Dados
 
-Valida informações mencionadas em conversas contra dados reais do CRM.
+Valida informações mencionadas em conversas com dados reais do CRM.
 
 **Método:** `POST`  
 **Payload:**
@@ -26,12 +26,12 @@ Valida informações mencionadas em conversas contra dados reais do CRM.
 - Compara dados mencionados com informações reais
 - Corrige afirmações incorretas automaticamente
 - Retorna resposta contextualizada via GPT-4
-
+- É acionada quando um dado é citado. Se o dado estiver incorreto, ela faz a correção. Caso o dado esteja correto, ele deixa a conversa rolar.
 ---
 
 ### 🎯 `/dashboard/data` - Análise de Market Fit
 
-Fornece insights sobre adequação produto-mercado baseado em dados de contatos e documentação.
+Fornece insights sobre adequação produto-mercado baseado em dados da nossa base de clientes (Hubspot CRM) e documentações internas sobre produto, marketing, estratégia e etc que estejam disponíveis no Notion.
 
 **Método:** `POST`  
 **Payload:**
@@ -44,7 +44,7 @@ Fornece insights sobre adequação produto-mercado baseado em dados de contatos 
 
 **Funcionalidade:**
 - Analisa base de contatos do HubSpot
-- Extrai informações de produtos do Notion
+- Extrai informações de produto e marketing do Notion
 - Gera insights sobre segmentação e market fit
 - Retorna análise completa + dados brutos
 
@@ -53,8 +53,8 @@ Fornece insights sobre adequação produto-mercado baseado em dados de contatos 
 ## 🔌 Integrações
 
 ### HubSpot CRM
-- **Deals:** Nome, valor, estágio, data de fechamento
-- **Contatos:** Nome, segmento da empresa, número de funcionários
+- **Deals:** Nome, valor, estágio, data de fechamento e etc.
+- **Contatos:** Nome, segmento da empresa, número de funcionários e etc.
 - **API Rate Limiting:** Implementado com delays entre requests
 
 ### Notion
