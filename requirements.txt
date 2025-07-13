@@ -3,3 +3,4 @@ pydantic>=2.6.0
 httpx>=0.26.0
 python-dotenv>=1.0.0
 uvicorn>=0.27.0  # For running the FastAPI application
+requests>=2.31.0  # For making HTTP requests
