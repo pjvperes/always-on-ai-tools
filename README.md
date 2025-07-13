@@ -53,7 +53,7 @@ Fornece insights sobre adequação produto-mercado baseado em dados da nossa bas
 ## 🔌 Integrações
 
 ### HubSpot CRM
-- **Deals:** Nome, valor, estágio, data de fechamento e etc.
+- **Deals:** Nome, valor, estágio, data de fechamento, segmento e etc.
 - **Contatos:** Nome, segmento da empresa, número de funcionários e etc.
 - **API Rate Limiting:** Implementado com delays entre requests
 
