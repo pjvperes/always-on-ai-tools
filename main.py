@@ -23,6 +23,7 @@ from config import (
 # Import trigger system
 from triggers.base import BaseTrigger
 from triggers.builtin.product_market_fit_trigger import ProductMarketFitTrigger
+from triggers.builtin.verify_data_trigger import VerifyDataTrigger
 
 # Import realtime system
 from realtime.session_manager import SessionManager
@@ -143,6 +144,11 @@ class VoiceAssistant:
                 logger.info("Product Market Fit trigger loaded")
             else:
                 logger.warning("Product Market Fit trigger is disabled in configuration")
+        
+        # Load Verify Data trigger
+        if "verify_data_trigger" in enabled_triggers:
+            self.trigger_manager.add_trigger(VerifyDataTrigger())
+            logger.info("Verify Data trigger loaded")
         
         # Load other triggers (placeholders)
         if "assistant_trigger" in enabled_triggers:
