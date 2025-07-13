@@ -1,11 +1,19 @@
 from fastapi import FastAPI, HTTPException
 from dotenv import load_dotenv
 from notion_client import Client
+from pydantic import BaseModel
 from typing import List, Dict, Any
 import os, time, requests
+from openai import OpenAI
 
 load_dotenv()
 app = FastAPI()
+
+# ------------------- MODELS -------------------
+
+class DashboardRequest(BaseModel):
+    context: str
+    prompt: str
 
 # ------------------- HUBSPOT -------------------
 
@@ -119,19 +127,74 @@ def get_page_text(page_id: str) -> str:
             text_parts.append(text)
     return "\n\n".join(text_parts)
 
+# ------------------- LLM INTEGRATION -------------------
+
+def get_openai_client() -> OpenAI:
+    """Initialize OpenAI client"""
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="OPENAI_API_KEY não definido.")
+    return OpenAI(api_key=api_key)
+
+def call_llm(context: str, prompt: str, hubspot_data: List[Dict[str, Any]], notion_text: str) -> str:
+    """Call OpenAI LLM with the provided data"""
+    client = get_openai_client()
+    
+    # Prepare the system message with all data
+    system_message = f"""
+    Você é um assistente inteligente que tem acesso aos seguintes dados:
+    
+    CONTEXTO: {context}
+    
+    DADOS DO HUBSPOT (Contatos):
+    {hubspot_data}
+    
+    DADOS DO PRODUTO (Página Notion):
+    {notion_text}
+    
+    Use essas informações para responder às solicitações do usuário de forma precisa e contextual.
+    """
+    
+    try:
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=1500,
+            temperature=0.7
+        )
+        
+        return response.choices[0].message.content
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao chamar LLM: {str(e)}")
+
 # ------------------- ROTA UNIFICADA -------------------
 
-@app.get("/dashboard/data")
-def get_dashboard_data():
+@app.post("/dashboard/data")
+def get_dashboard_data(request: DashboardRequest):
     try:
+        # Buscar dados do HubSpot e Notion
         hubspot_contacts = get_contacts_summary()
         notion_text = get_page_text("22f96f42586680eabeb1ddc80400c8a5")
+        
+        # Chamar LLM com os dados e parâmetros
+        llm_response = call_llm(
+            context=request.context,
+            prompt=request.prompt,
+            hubspot_data=hubspot_contacts,
+            notion_text=notion_text
+        )
+        
         return {
+            "llm_response": llm_response,
             "hubspot_contacts": hubspot_contacts,
             "notion_page_text": notion_text
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao buscar dados: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erro ao processar solicitação: {str(e)}")
 
 # ------------------- ENTRYPOINT -------------------
 
