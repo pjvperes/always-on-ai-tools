@@ -1,33 +1,105 @@
 from fastapi import FastAPI, HTTPException
-from dotenv import load_dotenv
-from notion_client import Client
 from pydantic import BaseModel
+from dotenv import load_dotenv
+import httpx
+import os
+import time
+import requests
 from typing import List, Dict, Any
-import os, time, requests
+from notion_client import Client
 from openai import OpenAI
 
 load_dotenv()
-app = FastAPI()
 
-# ------------------- MODELS -------------------
+app = FastAPI(title="AI Tools API", version="1.0.0")
 
-class DashboardRequest(BaseModel):
+# Environment variables
+HUBSPOT_API_KEY = os.getenv("HUBSPOT_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+NOTION_API_KEY = os.getenv("NOTION_API_KEY")
+
+# API URLs
+HUBSPOT_API_URL = "https://api.hubapi.com/crm/v3/objects/deals"
+HUBSPOT_CONTACTS_URL = "https://api.hubapi.com/crm/v3/objects/contacts"
+OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
+
+# Models
+class PromptRequest(BaseModel):
     context: str
     prompt: str
 
-# ------------------- HUBSPOT -------------------
+# ------------------- VERIFY DATA ENDPOINT -------------------
 
-BASE_HUBSPOT = "https://api.hubapi.com"
+@app.post("/verify-data")
+async def verify_data(payload: PromptRequest):
+    headers_hubspot = {
+        "Authorization": f"Bearer {HUBSPOT_API_KEY}",
+        "Content-Type": "application/json"
+    }
 
-def get_hubspot_token() -> str:
-    token = os.getenv("HUBSPOT_API_KEY")
-    if not token:
-        raise HTTPException(status_code=500, detail="HUBSPOT_API_KEY não definido.")
-    return token
+    headers_openai = {
+        "Authorization": f"Bearer {OPENAI_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    params = {
+        "properties": "dealname,amount,dealstage,closedate",
+        "limit": 100,
+        "archived": False
+    }
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        # Fetch HubSpot deals
+        response = await client.get(HUBSPOT_API_URL, headers=headers_hubspot, params=params)
+
+        if response.status_code != 200:
+            return {"error": f"Erro ao buscar deals: {response.text}"}
+
+        deals = response.json().get("results", [])
+
+        # Format deals for prompt
+        deals_text = "\n".join([
+            f"- {d['properties'].get('dealname')} | {d['properties'].get('dealstage')} | R$ {d['properties'].get('amount')} | {d['properties'].get('closedate')}"
+            for d in deals
+        ])
+
+        final_prompt = f"""
+[Dados do CRM]
+{deals_text}
+
+[Contexto]
+{payload.context}
+
+[Prompt]
+{payload.prompt}
+        """
+
+        # Call OpenAI
+        body = {
+            "model": "gpt-4.1-mini",
+            "messages": [
+                {"role": "system", "content": "Você é um assistente que ajuda a analisar dados de vendas. Se alguém citar um dado, você deve analisar os dados no Hubspot e corrigir imediatamente se estiver errado. Seja objetivo na correção e cite dados."},
+                {"role": "user", "content": final_prompt}   
+            ],
+            "temperature": 0.5
+        }
+
+        response_llm = await client.post(OPENAI_API_URL, headers=headers_openai, json=body)
+
+        if response_llm.status_code != 200:
+            return {"error": f"Erro ao chamar LLM: {response_llm.text}"}
+
+        llm_output = response_llm.json()["choices"][0]["message"]["content"]
+
+        return {
+            "response": llm_output
+        }
+
+# ------------------- PRODUCT MARKET FIT FUNCTIONS -------------------
 
 def get_contacts_summary() -> List[Dict[str, Any]]:
     headers = {
-        "Authorization": f"Bearer {get_hubspot_token()}",
+        "Authorization": f"Bearer {HUBSPOT_API_KEY}",
         "Accept": "application/json"
     }
 
@@ -40,7 +112,7 @@ def get_contacts_summary() -> List[Dict[str, Any]]:
 
     all_contacts = []
     while True:
-        res = requests.get(f"{BASE_HUBSPOT}/crm/v3/objects/contacts", headers=headers, params=params)
+        res = requests.get(HUBSPOT_CONTACTS_URL, headers=headers, params=params)
         if res.status_code != 200:
             raise HTTPException(status_code=res.status_code, detail=res.text)
 
@@ -66,13 +138,12 @@ def get_contacts_summary() -> List[Dict[str, Any]]:
 
     return summary
 
-# ------------------- NOTION -------------------
+# ------------------- NOTION FUNCTIONS -------------------
 
 def get_notion_client() -> Client:
-    token = os.getenv("NOTION_API_KEY")
-    if not token:
+    if not NOTION_API_KEY:
         raise HTTPException(status_code=500, detail="NOTION_API_KEY não definido.")
-    return Client(auth=token)
+    return Client(auth=NOTION_API_KEY)
 
 def extract_rich_text(rich_text_array: List[Dict[str, Any]]) -> str:
     if not rich_text_array:
@@ -131,10 +202,9 @@ def get_page_text(page_id: str) -> str:
 
 def get_openai_client() -> OpenAI:
     """Initialize OpenAI client"""
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
+    if not OPENAI_API_KEY:
         raise HTTPException(status_code=500, detail="OPENAI_API_KEY não definido.")
-    return OpenAI(api_key=api_key)
+    return OpenAI(api_key=OPENAI_API_KEY)
 
 def call_llm(context: str, prompt: str, hubspot_data: List[Dict[str, Any]], notion_text: str) -> str:
     """Call OpenAI LLM with the provided data"""
@@ -157,7 +227,7 @@ def call_llm(context: str, prompt: str, hubspot_data: List[Dict[str, Any]], noti
     
     try:
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4.1-mini",
             messages=[
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": prompt}
@@ -171,16 +241,16 @@ def call_llm(context: str, prompt: str, hubspot_data: List[Dict[str, Any]], noti
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao chamar LLM: {str(e)}")
 
-# ------------------- ROTA UNIFICADA -------------------
+# ------------------- PRODUCT MARKET FIT ENDPOINT -------------------
 
 @app.post("/dashboard/data")
-def get_dashboard_data(request: DashboardRequest):
+def get_dashboard_data(request: PromptRequest):
     try:
-        # Buscar dados do HubSpot e Notion
+        # Fetch HubSpot contacts and Notion data
         hubspot_contacts = get_contacts_summary()
         notion_text = get_page_text("22f96f42586680eabeb1ddc80400c8a5")
         
-        # Chamar LLM com os dados e parâmetros
+        # Call LLM with the data
         llm_response = call_llm(
             context=request.context,
             prompt=request.prompt,
@@ -196,8 +266,8 @@ def get_dashboard_data(request: DashboardRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao processar solicitação: {str(e)}")
 
-# ------------------- ENTRYPOINT -------------------
+# ------------------- MAIN -------------------
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=3001)
