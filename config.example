@@ -10,6 +10,9 @@ NOTION_API_KEY=your_notion_integration_token_here
 # OpenAI API Configuration
 OPENAI_API_KEY=your_openai_api_key_here
 
+# Data Verification API Configuration
+VERIFY_DATA_API_URL=http://localhost:8000
+
 # Como obter as chaves:
 # 
 # 1. HubSpot API Key:

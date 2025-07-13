@@ -19,9 +19,11 @@ TRIGGER_CONFIG = {
         "weather_trigger",
         "search_trigger",
         "product_market_fit_trigger",  # Add the new trigger
+        "verify_data_trigger",  # Add the data verification trigger
     ],
     "trigger_priorities": {
         "assistant_trigger": 100,
+        "verify_data_trigger": 75,
         "product_market_fit_trigger": 75,
         "weather_trigger": 70,
         "search_trigger": 60,
@@ -37,6 +39,7 @@ REALTIME_CONFIG = {
         "get_lead_quality_analysis",
         "get_market_fit_analysis",
         "get_marketing_strategy",
+        "verify_data_tool",
     ],
     "session_timeout": int(os.getenv("REALTIME_SESSION_TIMEOUT", "3600")),  # 1 hour
     "max_concurrent_sessions": int(os.getenv("REALTIME_MAX_SESSIONS", "10"))
